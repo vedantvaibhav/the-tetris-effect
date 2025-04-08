@@ -425,6 +425,33 @@
         .leaderboard-link:active {
             transform: translateY(0);
         }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin-bottom: 24px;
+            }
+
+            .instructions, .high-score {
+                font-size: 16px;
+            }
+
+            .leaderboard-link {
+                position: static;
+                display: block;
+                width: 100%;
+                max-width: 300px;
+                margin: 20px auto 0;
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        }
     </style>
 </head>
 <body>
