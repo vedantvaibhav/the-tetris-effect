@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The Tetris Effect</title>
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Doto:wght@800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&icon_names=leaderboard" />
     <!-- Add Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -287,8 +288,14 @@
 
         .grid-cell {
             border: 1px solid var(--grid-border);
-            transition: background-color 0.15s ease;
+            transition: background-color 0.08s linear;
             aspect-ratio: 1;
+        }
+
+        @media (max-width: 768px) {
+            .grid-cell {
+                transition: none;
+            }
         }
 
         .game-info {
@@ -415,6 +422,14 @@
             border-radius: 4px;
             transition: all 0.2s ease;
             z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .leaderboard-link .material-symbols-outlined {
+            font-size: 24px;
+            display: none;
         }
 
         .leaderboard-link:hover {
@@ -427,35 +442,31 @@
         }
 
         @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-
-            h1 {
-                font-size: 24px;
-                margin-bottom: 24px;
-            }
-
-            .instructions, .high-score {
-                font-size: 16px;
-            }
-
             .leaderboard-link {
-                position: static;
+                padding: 8px;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .leaderboard-link .leaderboard-text {
+                display: none;
+            }
+
+            .leaderboard-link .material-symbols-outlined {
                 display: block;
-                width: 100%;
-                max-width: 300px;
-                margin: 20px auto 0;
-                text-align: center;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
             }
         }
     </style>
 </head>
 <body>
-    <a href="leaderboard.html" class="leaderboard-link" id="leaderboard-link">Leaderboard</a>
+    <a href="leaderboard.html" class="leaderboard-link" id="leaderboard-link">
+        <span class="leaderboard-text">Leaderboard</span>
+        <span class="material-symbols-outlined">leaderboard</span>
+    </a>
     <div class="container">
         <h1>The Tetris Effect</h1>
         
@@ -920,56 +931,49 @@
         gameContainer.addEventListener('touchend', handleTouchEnd);
 
         function handleTouchStart(e) {
-            if (!currentPiece || isGameOver) return;
+            if (!currentPiece || isGameOver || isPaused) return;
             
-            // Make sure the touch is within the game container
             const touch = e.touches[0];
             const rect = gameContainer.getBoundingClientRect();
             
-            // Check if touch is within the game container bounds
             if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
                 touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
                 touchStartX = touch.clientX;
                 touchStartY = touch.clientY;
-                touchStartTime = new Date().getTime();
+                touchStartTime = Date.now();
                 isSwiping = false;
-                e.preventDefault(); // Prevent default only when touching game area
             }
         }
 
         function handleTouchMove(e) {
-            if (!touchStartX || !touchStartY || !currentPiece || isGameOver) return;
+            if (!touchStartX || !touchStartY || !currentPiece || isGameOver || isPaused) return;
 
             const touch = e.touches[0];
             const diffX = touchStartX - touch.clientX;
             const diffY = touchStartY - touch.clientY;
+            const currentTime = Date.now();
 
-            // If movement is detected beyond a small threshold, mark as swiping
+            // Prevent default only if we're handling game interactions
             if (Math.abs(diffX) > 5 || Math.abs(diffY) > 5) {
+                e.preventDefault();
                 isSwiping = true;
             }
 
-            // Horizontal swipe
+            // Only process move every 50ms to prevent overwhelming the game
+            if (currentTime - touchStartTime < 50) return;
+
             if (Math.abs(diffX) > SWIPE_THRESHOLD) {
-                if (diffX > 0) {
-                    // Swipe left
-                    if (isValidMove(currentPiece, 0, -1)) {
-                        currentPiece.col--;
-                        drawBoard();
-                        drawPiece();
-                    }
-                } else {
-                    // Swipe right
-                    if (isValidMove(currentPiece, 0, 1)) {
-                        currentPiece.col++;
-                        drawBoard();
-                        drawPiece();
-                    }
+                if (diffX > 0 && isValidMove(currentPiece, 0, -1)) {
+                    currentPiece.col--;
+                    touchStartX = touch.clientX;
+                } else if (diffX < 0 && isValidMove(currentPiece, 0, 1)) {
+                    currentPiece.col++;
+                    touchStartX = touch.clientX;
                 }
-                touchStartX = touch.clientX;
+                drawBoard();
+                drawPiece();
             }
 
-            // Vertical swipe down - make piece fall faster
             if (diffY < -SWIPE_THRESHOLD) {
                 moveDown();
                 drawBoard();
@@ -977,19 +981,18 @@
                 touchStartY = touch.clientY;
             }
             
-            e.preventDefault(); // Prevent scrolling while swiping in game area
+            touchStartTime = currentTime;
         }
 
         function handleTouchEnd(e) {
-            if (!currentPiece || isGameOver || !touchStartX || !touchStartY) return;
+            if (!currentPiece || isGameOver || isPaused || !touchStartX || !touchStartY) return;
 
-            const touchEndTime = new Date().getTime();
+            const touchEndTime = Date.now();
             const touchDuration = touchEndTime - touchStartTime;
 
-            // If it was a quick touch and not a swipe, rotate the piece
             if (!isSwiping && touchDuration < TAP_THRESHOLD) {
-                rotatePiece();
                 e.preventDefault();
+                rotatePiece();
             }
 
             touchStartX = null;
