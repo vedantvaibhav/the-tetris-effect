@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Tetris Effect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Doto:wght@800&display=swap" rel="stylesheet">
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg-color: #F5E6D3;
+            --text-color: #995402;
+            --grid-color: #FFFFFF;
+            --grid-border: #F5E6D3;
+            --button-color: #FF5733;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Doto', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            position: relative;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.3;
+            background: url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDABQODxIPDRQSEBIXFRQdHx4eHRsdHSIeIR0hIiEpICUgJSAhISMlLicuJCEjLiM4Mis8NT86PUJDRkZGR0hHS0f/2wBDAR4eHh4dHRsdHR0fHx0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR3/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=') lightgray 50% / cover no-repeat;
+            mix-blend-mode: soft-light;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .container::after {
+            display: none;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 36px;
+            font-weight: 800;
+            line-height: 50px;
+            text-align: center;
+            font-style: normal;
+            color: #995402;
+        }
+
+        .game-container {
+            position: relative;
+            width: 300px;
+            margin: 0 auto 10px;
+            padding: 10px;
+            background: #EDD9C0;
+            z-index: 1;
+        }
+
+        .game-container::before {
+            content: '';
+            position: absolute;
+            width: 280px;
+            height: 384px;
+            flex-shrink: 0;
+            border-radius: 999px;
+            background: #D64000;
+            filter: blur(170px);
+            z-index: -1;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .game-container::after {
+            display: none;
+        }
+
+        .game-over-overlay {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(245, 230, 211, 0.95);
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: calc(100% - 20px);
+        }
+
+        .game-over-overlay.visible {
+            display: block;
+        }
+
+        .game-over-text {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .username-input {
+            display: none;
+            margin: 1rem 0 20px 0;
+        }
+
+        .username-input.visible {
+            display: block;
+        }
+
+        .username-input input {
+            padding: 0.5rem;
+            border: 2px solid var(--button-color);
+            border-radius: 4px;
+            font-family: 'Doto', sans-serif;
+            font-size: 1rem;
+            width: 100%;
+            height: 36px;
+            text-align: center;
+            background: white;
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+
+        .leaderboard {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(245, 230, 211, 0.95);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-width: 250px;
+            display: none;
+        }
+
+        .leaderboard.visible {
+            display: block;
+        }
+
+        .leaderboard h2 {
+            color: var(--text-color);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(153, 84, 2, 0.2);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .rank {
+            width: 30px;
+        }
+
+        .username {
+            flex: 1;
+            margin: 0 0.5rem;
+            text-align: left;
+        }
+
+        .score {
+            text-align: right;
+        }
+
+        @media (max-width: 1200px) {
+            .leaderboard {
+                position: static;
+                transform: none;
+                margin: 2rem auto;
+                max-width: 400px;
+            }
+        }
+
+        .game-over-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .submit-score-btn {
+            background: var(--button-color);
+            color: white;
+            border: none;
+            width: 100%;
+            height: 36px;
+            padding: 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Doto', sans-serif;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .submit-score-btn:hover {
+            background: #E64D2E;
+            transform: translateY(-1px);
+        }
+
+        .submit-score-btn:active {
+            transform: translateY(0);
+        }
+
+        .play-again-btn.secondary {
+            background: transparent;
+            color: var(--button-color);
+            border: none;
+            width: 100%;
+            height: 36px;
+            padding: 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Doto', sans-serif;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .play-again-btn.secondary:hover {
+            background: transparent;
+            color: #E64D2E;
+            transform: translateY(-1px);
+        }
+
+        .play-again-btn.secondary:active {
+            transform: translateY(0);
+        }
+
+        .game-board {
+            position: relative;
+            width: 280px;
+            height: 476px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(17, 1fr);
+            background: var(--grid-color);
+            z-index: 1;
+        }
+
+        .grid-cell {
+            border: 1px solid var(--grid-border);
+            transition: background-color 0.15s ease;
+            aspect-ratio: 1;
+        }
+
+        .game-info {
+            display: flex;
+            width: 280px;
+            padding: 0px 4px;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0 auto 20px;
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-btn {
+            background: var(--button-color);
+            color: white;
+            border: none;
+            min-width: 36px;
+            height: 36px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-family: 'Doto', sans-serif;
+            font-size: 1rem;
+        }
+
+        .control-btn.icon-btn {
+            padding: 8px;
+            min-width: 36px;
+            width: 36px;
+        }
+
+        .control-btn:hover {
+            background: #E64D2E;
+            transform: translateY(-1px);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        #reset-btn {
+            background: var(--button-color);
+            color: white;
+            border: none;
+            min-width: 80px;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Doto', sans-serif;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        #reset-btn:hover {
+            background: #E64D2E;
+            transform: translateY(-1px);
+        }
+
+        #reset-btn:active {
+            transform: translateY(0);
+        }
+
+        .instructions {
+            margin: 0 0 12px;
+            font-size: 18px;
+            font-weight: 800;
+            line-height: normal;
+            text-align: center;
+            font-style: normal;
+            color: #995402;
+            text-transform: lowercase;
+        }
+
+        .high-score {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 800;
+            line-height: normal;
+            text-align: center;
+            font-style: normal;
+            color: #995402;
+            text-transform: lowercase;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin-bottom: 24px;
+            }
+
+            .instructions, .high-score {
+                font-size: 16px;
+            }
+        }
+
+        .leaderboard-link {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 1rem;
+            padding: 8px 16px;
+            background: var(--button-color);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .leaderboard-link:hover {
+            background: #E64D2E;
+            transform: translateY(-1px);
+        }
+
+        .leaderboard-link:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <a href="leaderboard.html" class="leaderboard-link" id="leaderboard-link">Leaderboard</a>
+    <div class="container">
+        <h1>The Tetris Effect</h1>
+        
+        <div class="game-container">
+            <div class="game-board" id="game-board"></div>
+            <div class="game-over-overlay" id="game-over-overlay">
+                <div class="game-over-text">Game Over 😢</div>
+                <div class="username-input" id="username-input">
+                    <input type="text" placeholder="Enter your name" maxlength="20" id="username-field">
+                </div>
+                <div class="game-over-buttons">
+                    <button class="submit-score-btn" id="submit-score-btn">Submit Score</button>
+                    <button class="play-again-btn secondary" id="play-again-btn">Play Again</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-info">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="game-controls">
+                <button id="play-pause-btn" class="control-btn">Play</button>
+                <button id="reset-btn" style="display: none;">Reset</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            use the up arrow key to rotate the block
+        </div>
+        
+        <div class="high-score">
+            personal best <span id="highest-score">12</span>
+        </div>
+    </div>
+
+    <script>
+        // Game board dimensions
+        const COLS = 10;
+        const ROWS = 17;
+        const INITIAL_SPEED = 1000;
+        const SPEED_INCREASE = 0.8;
+
+        // Game state
+        let score = 0;
+        let gameBoard = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        let currentPiece = null;
+        let gameInterval = null;
+        let highestScore = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
+        let isGameOver = false;
+        let dropSpeed = INITIAL_SPEED;
+        let isGameStarted = false;
+        let isPaused = false;
+        let lastColor = null;
+
+        // Tetromino shapes and colors
+        const SHAPES = [
+            [[1, 1, 1, 1]], // I
+            [[1, 1], [1, 1]], // O
+            [[1, 1, 1], [0, 1, 0]], // T
+            [[1, 1, 1], [1, 0, 0]], // L
+            [[1, 1, 1], [0, 0, 1]], // J
+            [[1, 1, 0], [0, 1, 1]], // S
+            [[0, 1, 1], [1, 1, 0]]  // Z
+        ];
+
+        // Updated color variations for each piece
+        const COLORS = {
+            I: ['#FF4D4D', '#8533FF', '#4DFF8C', '#4D4DFF'],  // Converting from HSBA values
+            O: ['#F7C94D', '#FF4D99', '#FF6B4D', '#4D66FF'],
+            T: ['#FF4D4D', '#8533FF', '#4DFF8C', '#4D4DFF'],
+            L: ['#F7C94D', '#FF4D99', '#FF6B4D', '#4D66FF'],
+            J: ['#FF4D4D', '#8533FF', '#4DFF8C', '#4D4DFF'],
+            S: ['#F7C94D', '#FF4D99', '#FF6B4D', '#4D66FF'],
+            Z: ['#FF4D4D', '#8533FF', '#4DFF8C', '#4D4DFF']
+        };
+
+        // Add new variables for leaderboard
+        let leaderboardData = [];
+        const API_URL = 'https://the-tetris-effect-default-rtdb.firebaseio.com/';
+        
+        // Initialize Firebase
+        const firebaseConfig = {
+            databaseURL: 'https://the-tetris-effect-default-rtdb.firebaseio.com/'
+        };
+        
+        // Initialize Firebase with error handling
+        let database;
+        try {
+            const app = firebase.initializeApp(firebaseConfig, 'game');
+            database = app.database();
+        } catch (error) {
+            // If Firebase is already initialized, get the existing app
+            if (error.code === 'app/duplicate-app') {
+                database = firebase.app('game').database();
+            } else {
+                console.error('Firebase initialization error:', error);
+            }
+        }
+        
+        // Initialize game board
+        function initBoard() {
+            const gameBoard = document.getElementById('game-board');
+            gameBoard.innerHTML = '';
+            
+            // Update highest score display on load
+            document.getElementById('highest-score').textContent = highestScore;
+            
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.id = `cell-${row}-${col}`;
+                    gameBoard.appendChild(cell);
+                }
+            }
+        }
+
+        // Get random color variation for a piece
+        function getRandomColor(pieceType) {
+            const variations = COLORS[pieceType];
+            let color;
+            do {
+                color = variations[Math.floor(Math.random() * variations.length)];
+            } while (color === lastColor);
+            lastColor = color;
+            return color;
+        }
+
+        // Create a new piece with proper positioning
+        function createPiece() {
+            const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+            const shape = SHAPES[shapeIndex];
+            const pieceTypes = ['I', 'O', 'T', 'L', 'J', 'S', 'Z'];
+            const piece = {
+                shape: shape,
+                color: getRandomColor(pieceTypes[shapeIndex]),
+                row: 0,
+                col: Math.floor((COLS - shape[0].length) / 2)
+            };
+
+            piece.row = -shape.length;
+            return piece;
+        }
+
+        // Draw the game board
+        function drawBoard() {
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const cell = document.getElementById(`cell-${row}-${col}`);
+                    cell.style.backgroundColor = gameBoard[row][col] || '#fff';
+                }
+            }
+        }
+
+        // Draw the current piece
+        function drawPiece() {
+            if (!currentPiece) return;
+            
+            const { shape, color, row, col } = currentPiece;
+            
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c]) {
+                        const currentRow = row + r;
+                        if (currentRow >= 0) {
+                            const cell = document.getElementById(`cell-${currentRow}-${col + c}`);
+                            if (cell) cell.style.backgroundColor = color;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if a move is valid
+        function isValidMove(piece, rowOffset = 0, colOffset = 0) {
+            const { shape, row, col } = piece;
+            
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c]) {
+                        const newRow = row + r + rowOffset;
+                        const newCol = col + c + colOffset;
+                        
+                        if (newRow < 0) continue;
+                        
+                        if (newRow >= ROWS || 
+                            newCol < 0 || 
+                            newCol >= COLS || 
+                            gameBoard[newRow][newCol]) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        // Move the piece down
+        function moveDown() {
+            if (!currentPiece || isGameOver) return;
+            
+            if (isValidMove(currentPiece, 1)) {
+                currentPiece.row++;
+                return true;
+            } else {
+                if (currentPiece.row >= 0) {
+                    lockPiece();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Lock the current piece in place
+        function lockPiece() {
+            const { shape, color, row, col } = currentPiece;
+            
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c]) {
+                        const currentRow = row + r;
+                        if (currentRow >= 0) {
+                            gameBoard[currentRow][col + c] = color;
+                            // Check if any block reaches the top row
+                            if (currentRow === 0) {
+                                gameOver();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            checkLines();
+            currentPiece = createPiece();
+            
+            // Check if new piece can be placed
+            if (!isValidMove(currentPiece)) {
+                gameOver();
+            }
+        }
+
+        // Check for completed lines
+        function checkLines() {
+            let linesCleared = 0;
+            
+            for (let row = ROWS - 1; row >= 0; row--) {
+                if (gameBoard[row].every(cell => cell)) {
+                    gameBoard.splice(row, 1);
+                    gameBoard.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    row++;
+                }
+            }
+            
+            if (linesCleared > 0) {
+                const points = [40, 100, 300, 1200][linesCleared - 1] || 0;
+                score += points;
+                document.getElementById('score').textContent = score;
+                
+                if (score > highestScore) {
+                    highestScore = score;
+                    localStorage.setItem('tetrisHighScore', highestScore.toString());
+                    document.getElementById('highest-score').textContent = highestScore;
+                }
+                
+                dropSpeed = INITIAL_SPEED * Math.pow(SPEED_INCREASE, Math.floor(score / 1000));
+                if (gameInterval) {
+                    clearInterval(gameInterval);
+                    gameInterval = setInterval(gameTick, dropSpeed);
+                }
+            }
+        }
+
+        // Game tick function
+        function gameTick() {
+            if (isPaused) return;
+            if (!moveDown()) {
+                drawBoard();
+            }
+            drawBoard();
+            drawPiece();
+        }
+
+        // Game over
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            currentPiece = null;
+            
+            const cells = document.getElementsByClassName('grid-cell');
+            for (let i = 0; i < cells.length; i++) {
+                const cell = cells[i];
+                if (cell.style.backgroundColor !== 'rgb(255, 255, 255)') {
+                    cell.style.transition = 'opacity 0.5s ease';
+                    cell.style.opacity = '0.3';
+                }
+            }
+            
+            setTimeout(() => {
+                const overlay = document.getElementById('game-over-overlay');
+                const usernameInput = document.getElementById('username-input');
+                overlay.classList.add('visible');
+                usernameInput.classList.add('visible');
+            }, 500);
+        }
+
+        // Reset game
+        function resetGame() {
+            clearInterval(gameInterval);
+            isGameOver = false;
+            isPaused = false;
+            gameBoard = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+            score = 0;
+            dropSpeed = INITIAL_SPEED;
+            document.getElementById('score').textContent = score;
+            
+            const cells = document.getElementsByClassName('grid-cell');
+            for (let cell of cells) {
+                cell.style.opacity = '1';
+                cell.style.transition = 'background-color 0.15s ease';
+            }
+            
+            const overlay = document.getElementById('game-over-overlay');
+            overlay.classList.remove('visible');
+            
+            if (!isGameStarted) {
+                drawBoard();
+                document.getElementById('reset-btn').style.display = 'none';
+                const playPauseBtn = document.getElementById('play-pause-btn');
+                playPauseBtn.classList.remove('icon-btn');
+                playPauseBtn.textContent = 'Play';
+            } else {
+                currentPiece = createPiece();
+                gameInterval = setInterval(gameTick, dropSpeed);
+                drawBoard();
+                drawPiece();
+            }
+        }
+
+        // Start game function
+        function startGame() {
+            isGameStarted = true;
+            isPaused = false;
+            document.getElementById('reset-btn').style.display = 'block';
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            playPauseBtn.classList.add('icon-btn');
+            playPauseBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C5.92487 1 1 5.92487 1 12C1 18.0751 5.92487 23 12 23C18.0751 23 23 18.0751 23 12C23 5.92487 18.0751 1 12 1ZM10.5 9C10.5 8.44772 10.0523 8 9.5 8C8.94772 8 8.5 8.44772 8.5 9V15C8.5 15.5523 8.94772 16 9.5 16C10.0523 16 10.5 15.5523 10.5 15V9ZM15.5 9C15.5 8.44772 15.0523 8 14.5 8C13.9477 8 13.5 8.44772 13.5 9V15C13.5 15.5523 13.9477 16 14.5 16C15.0523 16 15.5 15.5523 15.5 15V9Z" fill="#FFFFFF"/>
+            </svg>`;
+            currentPiece = createPiece();
+            gameInterval = setInterval(gameTick, dropSpeed);
+            drawBoard();
+            drawPiece();
+        }
+
+        // Toggle pause function
+        function togglePause() {
+            if (!isGameStarted || isGameOver) return;
+
+            isPaused = !isPaused;
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            
+            if (isPaused) {
+                clearInterval(gameInterval);
+                playPauseBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C5.92487 1 1 5.92487 1 12C1 18.0751 5.92487 23 12 23C18.0751 23 23 18.0751 23 12C23 5.92487 18.0751 1 12 1ZM9.59974 8.11608C9.5 8.24931 9.5 8.48795 9.5 8.96524V15.0346C9.5 15.5119 9.5 15.7505 9.59974 15.8837C9.68666 15.9998 9.81971 16.0725 9.96438 16.0828C10.1304 16.0947 10.3311 15.9656 10.7326 15.7075L15.4532 12.6728C15.8016 12.4489 15.9758 12.3369 16.0359 12.1945C16.0885 12.0701 16.0885 11.9297 16.0359 11.8053C15.9758 11.6629 15.8016 11.5509 15.4532 11.327L10.7326 8.2923C10.3311 8.0342 10.1304 7.90515 9.96438 7.91701C9.81971 7.92734 9.68666 7.99998 9.59974 8.11608Z" fill="#FFFFFF"/>
+                </svg>`;
+            } else {
+                gameInterval = setInterval(gameTick, dropSpeed);
+                playPauseBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C5.92487 1 1 5.92487 1 12C1 18.0751 5.92487 23 12 23C18.0751 23 23 18.0751 23 12C23 5.92487 18.0751 1 12 1ZM10.5 9C10.5 8.44772 10.0523 8 9.5 8C8.94772 8 8.5 8.44772 8.5 9V15C8.5 15.5523 8.94772 16 9.5 16C10.0523 16 10.5 15.5523 10.5 15V9ZM15.5 9C15.5 8.44772 15.0523 8 14.5 8C13.9477 8 13.5 8.44772 13.5 9V15C13.5 15.5523 13.9477 16 14.5 16C15.0523 16 15.5 15.5523 15.5 15V9Z" fill="#FFFFFF"/>
+                </svg>`;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('play-pause-btn').addEventListener('click', function() {
+            if (!isGameStarted) {
+                startGame();
+            } else {
+                togglePause();
+            }
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', resetGame);
+        document.getElementById('submit-score-btn').addEventListener('click', handleScoreSubmission);
+        document.getElementById('play-again-btn').addEventListener('click', function() {
+            document.getElementById('username-input').classList.remove('visible');
+            document.getElementById('game-over-overlay').classList.remove('visible');
+            resetGame();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !isGameStarted) {
+                startGame();
+                return;
+            }
+
+            if (isPaused) return;
+
+            if (!currentPiece || isGameOver) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    if (isValidMove(currentPiece, 0, -1)) {
+                        currentPiece.col--;
+                        drawBoard();
+                        drawPiece();
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.col++;
+                        drawBoard();
+                        drawPiece();
+                    }
+                    break;
+                case 'ArrowDown':
+                    moveDown();
+                    drawBoard();
+                    drawPiece();
+                    break;
+                case 'ArrowUp':
+                    const rotated = currentPiece.shape[0].map((_, i) =>
+                        currentPiece.shape.map(row => row[i]).reverse()
+                    );
+                    const originalShape = currentPiece.shape;
+                    currentPiece.shape = rotated;
+                    
+                    if (!isValidMove(currentPiece)) {
+                        currentPiece.col--;
+                        if (!isValidMove(currentPiece)) {
+                            currentPiece.col += 2;
+                            if (!isValidMove(currentPiece)) {
+                                currentPiece.col--;
+                                currentPiece.shape = originalShape;
+                            }
+                        }
+                    }
+                    drawBoard();
+                    drawPiece();
+                    break;
+                case 'p':
+                case 'P':
+                    togglePause();
+                    break;
+            }
+        });
+
+        // Touch control variables
+        let touchStartX = null;
+        let touchStartY = null;
+        let touchStartTime = 0;
+        let isSwiping = false;
+        const SWIPE_THRESHOLD = 30;
+        const TAP_THRESHOLD = 200; // Maximum time for a tap
+
+        // Add touch event listeners to game container only
+        const gameContainer = document.querySelector('.game-container');
+        gameContainer.addEventListener('touchstart', handleTouchStart);
+        gameContainer.addEventListener('touchmove', handleTouchMove);
+        gameContainer.addEventListener('touchend', handleTouchEnd);
+
+        function handleTouchStart(e) {
+            if (!currentPiece || isGameOver) return;
+            
+            // Make sure the touch is within the game container
+            const touch = e.touches[0];
+            const rect = gameContainer.getBoundingClientRect();
+            
+            // Check if touch is within the game container bounds
+            if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                touchStartTime = new Date().getTime();
+                isSwiping = false;
+                e.preventDefault(); // Prevent default only when touching game area
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (!touchStartX || !touchStartY || !currentPiece || isGameOver) return;
+
+            const touch = e.touches[0];
+            const diffX = touchStartX - touch.clientX;
+            const diffY = touchStartY - touch.clientY;
+
+            // If movement is detected beyond a small threshold, mark as swiping
+            if (Math.abs(diffX) > 5 || Math.abs(diffY) > 5) {
+                isSwiping = true;
+            }
+
+            // Horizontal swipe
+            if (Math.abs(diffX) > SWIPE_THRESHOLD) {
+                if (diffX > 0) {
+                    // Swipe left
+                    if (isValidMove(currentPiece, 0, -1)) {
+                        currentPiece.col--;
+                        drawBoard();
+                        drawPiece();
+                    }
+                } else {
+                    // Swipe right
+                    if (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.col++;
+                        drawBoard();
+                        drawPiece();
+                    }
+                }
+                touchStartX = touch.clientX;
+            }
+
+            // Vertical swipe down - make piece fall faster
+            if (diffY < -SWIPE_THRESHOLD) {
+                moveDown();
+                drawBoard();
+                drawPiece();
+                touchStartY = touch.clientY;
+            }
+            
+            e.preventDefault(); // Prevent scrolling while swiping in game area
+        }
+
+        function handleTouchEnd(e) {
+            if (!currentPiece || isGameOver || !touchStartX || !touchStartY) return;
+
+            const touchEndTime = new Date().getTime();
+            const touchDuration = touchEndTime - touchStartTime;
+
+            // If it was a quick touch and not a swipe, rotate the piece
+            if (!isSwiping && touchDuration < TAP_THRESHOLD) {
+                rotatePiece();
+                e.preventDefault();
+            }
+
+            touchStartX = null;
+            touchStartY = null;
+        }
+
+        function rotatePiece() {
+            const rotated = currentPiece.shape[0].map((_, i) =>
+                currentPiece.shape.map(row => row[i]).reverse()
+            );
+            const originalShape = currentPiece.shape;
+            currentPiece.shape = rotated;
+            
+            if (!isValidMove(currentPiece)) {
+                currentPiece.col--;
+                if (!isValidMove(currentPiece)) {
+                    currentPiece.col += 2;
+                    if (!isValidMove(currentPiece)) {
+                        currentPiece.col--;
+                        currentPiece.shape = originalShape;
+                    }
+                }
+            }
+            drawBoard();
+            drawPiece();
+        }
+
+        // Update instructions text for mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const instructionsText = isMobile ? 
+            "tap to rotate" : 
+            "use the up arrow key to rotate the block";
+        document.querySelector('.instructions').textContent = instructionsText;
+
+        // Initialize the game board without starting
+        initBoard();
+        drawBoard();
+
+        // Function to submit score
+        async function submitScore(username, score) {
+            try {
+                console.log('Attempting to submit score:', { username, score });
+                const scoresRef = database.ref('scores');
+                const newScoreRef = scoresRef.push();
+                
+                // Generate a unique key for the new score
+                const newScoreKey = newScoreRef.key;
+                const scoreData = {
+                    username: username,
+                    score: score,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                // Create an update object with the new score
+                const updates = {};
+                updates['/scores/' + newScoreKey] = scoreData;
+
+                // Update the database
+                await database.ref().update(updates);
+                console.log('Score submitted successfully');
+                
+                // Redirect to leaderboard page after successful submission
+                window.location.href = 'leaderboard.html';
+            } catch (error) {
+                console.error('Detailed error submitting score:', error);
+                alert('Error submitting score: ' + error.message);
+            }
+        }
+
+        // Update handleScoreSubmission function
+        async function handleScoreSubmission() {
+            const usernameField = document.getElementById('username-field');
+            const username = usernameField.value.trim();
+            
+            if (username) {
+                try {
+                    await submitScore(username, score);
+                    usernameField.value = '';
+                    document.getElementById('username-input').classList.remove('visible');
+                    document.getElementById('game-over-overlay').classList.remove('visible');
+                    
+                    // Reset to initial state
+                    isGameStarted = false;
+                    document.getElementById('reset-btn').style.display = 'none';
+                    const playPauseBtn = document.getElementById('play-pause-btn');
+                    playPauseBtn.classList.remove('icon-btn');
+                    playPauseBtn.textContent = 'Play';
+                    
+                    resetGame();
+                } catch (error) {
+                    console.error('Error in score submission:', error);
+                    alert('Error submitting score. Please try again.');
+                }
+            } else {
+                alert('Please enter your name to submit your score!');
+            }
+        }
+    </script>
+</body>
+</html> 

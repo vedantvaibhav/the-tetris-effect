@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - The Tetris Effect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Doto:wght@800&display=swap" rel="stylesheet">
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg-color: #F5E6D3;
+            --text-color: #995402;
+            --divider-color: #D9B58B;
+            --button-color: #FF5733;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Doto', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: 2rem;
+            position: relative;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 48px;
+            color: var(--text-color);
+        }
+
+        .leaderboard-list {
+            list-style: none;
+            width: 100%;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--divider-color);
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rank {
+            margin-right: 8px;
+        }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--button-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Doto', sans-serif;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .back-button:hover {
+            background: #E64D2E;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 36px;
+                margin-bottom: 36px;
+            }
+
+            .leaderboard-item {
+                font-size: 16px;
+            }
+
+            .back-button {
+                position: fixed;
+                top: auto;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .back-button:hover {
+                transform: translateX(-50%) translateY(-1px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-button">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 4L6 8L10 12" stroke="white" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Go back to Game
+    </a>
+
+    <div class="container">
+        <h1>Top 10 Players</h1>
+        <ul class="leaderboard-list" id="leaderboard-list">
+            <!-- Leaderboard items will be added here -->
+        </ul>
+    </div>
+
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            databaseURL: 'https://the-tetris-effect-default-rtdb.firebaseio.com/'
+        };
+        
+        // Initialize with a different app name
+        const leaderboardApp = firebase.initializeApp(firebaseConfig, 'leaderboard');
+        const database = leaderboardApp.database();
+
+        // Function to fetch and display leaderboard
+        function fetchLeaderboard() {
+            const scoresRef = database.ref('scores');
+            scoresRef.orderByChild('score').limitToLast(10).on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    const leaderboardData = Object.entries(data)
+                        .map(([id, entry]) => ({ id, ...entry }))
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 10);
+                    
+                    const leaderboardList = document.getElementById('leaderboard-list');
+                    leaderboardList.innerHTML = leaderboardData
+                        .map((entry, index) => `
+                            <li class="leaderboard-item">
+                                <div class="player-info">
+                                    <span class="rank">#${index + 1}</span>
+                                    <span class="username">${entry.username}</span>
+                                </div>
+                                <span class="score">${entry.score}</span>
+                            </li>
+                        `)
+                        .join('');
+                }
+            });
+        }
+
+        // Initialize leaderboard
+        fetchLeaderboard();
+    </script>
+</body>
+</html> 
